@@ -1,0 +1,95 @@
+---
+title: "Example flexdashboard report"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Accident locations
+
+```{r}
+# Load the required packages
+library("readr")
+library("magrittr")
+library("DT")
+library("plotly")
+library("sf")
+library("leaflet")
+
+# Load the data for the example
+fl_accidents <- read_csv("../data/fl_accidents.csv")
+
+irma_track <- read_sf("../data/al112017_best_track", 
+                      layer = "al112017_lin") %>% 
+  st_transform(crs = 4326)
+
+# Convert the data to an sf object 
+fl_accidents %<>% 
+  st_as_sf(coords = c("longitud", "latitude")) %>% 
+  st_sf(crs = 4326)
+
+# Add pop-up information
+fl_accidents %<>% 
+  mutate(popup = paste("<b>Date:</b>", date, 
+                       "<br/>",
+                       "<b># fatalities:</b>", fatals))
+
+# Create leaflet map
+leaflet() %>% 
+  addTiles() %>%
+  fitBounds(lng1 = -88, lng2 = -80, lat1 = 24.5, lat2 = 31.5) %>% 
+  addMarkers(data = fl_accidents,
+             popup = ~ popup) %>% 
+  addPolylines(data = irma_track, color = "red")
+```
+
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Time series of fatalities
+
+```{r}
+# Load the required packages
+library("readr")
+library("ggplot2")
+library("forcats") 
+library("magrittr")
+library("dplyr")
+library("lubridate")
+
+# Load the data for the example
+daily_fatalities <- read_csv("../data/daily_fatalities.csv")
+
+daily_fatalities %<>% 
+  mutate(weekday = as_factor(weekday)) %>% 
+  mutate(weekday = fct_relevel(weekday, 
+                               "Sunday", "Monday", "Tuesday", "Wednesday", 
+                               "Thursday", "Friday", "Saturday"))
+ggplot(data = daily_fatalities) + 
+  geom_line(aes(x = date, y = fatals), color = "darkgray") + 
+  geom_point(aes(x = date, y = fatals, color = weekday), size = 2) + 
+  expand_limits(y = 0) + 
+  scale_color_viridis_d() + 
+  labs(x = "Date", y = "# of fatalities", color = "Day of week") + 
+  ggtitle("Motor vehicle fatalities in Florida",
+          subtitle = "Late summer / early fall of 2019") +
+  theme(legend.position = "bottom")
+```
+
+### Information
+
+This dashboard explores **fatal motor vehicle accidents** in Florida around the time of
+Hurricane Irma's Florida landfall on September 10, 2017.
+
+All the data in these visualizations is from the 
+[Federal Accident Reporting System](https://www.nhtsa.gov/research-data/fatality-analysis-reporting-system-fars).
+
